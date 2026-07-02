@@ -39,8 +39,9 @@ def _update_application_results(db_app: LoanApplication, result_state: dict) -> 
     db_app.decision = _serialize_model_output(result_state["decision"])
     db_app.compliance_check = _serialize_model_output(result_state["compliance_check"])
 
-    if result_state["decision"]:
-        db_app.final_decision_status = result_state["decision"].classification
+    decision = result_state.get("decision")
+    if decision and hasattr(decision, 'classification'):
+        db_app.final_decision_status = decision.classification
 
     db_app.execution_trace = [_serialize_trace(t) for t in result_state["execution_trace"]]
     db_app.error_log = result_state["error_log"]
@@ -108,6 +109,7 @@ def _process_application_background(
     try:
         db_app = db.query(LoanApplication).filter(LoanApplication.id == application_id).first()
         if not db_app:
+            logger.error("Application not found in database", application_id=application_id)
             return
 
         result_state = process_loan_application(
@@ -120,10 +122,12 @@ def _process_application_background(
         logger.info("Application processed", application_id=application_id, status=db_app.status)
     except Exception as e:
         logger.error("Background processing error", application_id=application_id, error=str(e))
-        db_app.status = "error"
-        db_app.error_log = [str(e)]
-        db_app.completed_at = datetime.utcnow()
-        db.commit()
+        db_app = db.query(LoanApplication).filter(LoanApplication.id == application_id).first()
+        if db_app:
+            db_app.status = "error"
+            db_app.error_log = [str(e)]
+            db_app.completed_at = datetime.utcnow()
+            db.commit()
     finally:
         db.close()
 

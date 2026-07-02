@@ -33,7 +33,8 @@
       "Bash(curl -s -X POST http://localhost:8000/api/v1/applications -H 'Content-Type: application/json' -d '{\"applicant_id\":\"APP-DEMO-002\",\"applicant_name\":\"Jane Smith\",\"age\":40,\"employment_type\":\"employed\",\"employment_duration_months\":60,\"annual_income\":95000,\"credit_score\":780,\"existing_liabilities\":200,\"loan_amount\":75000,\"loan_tenure_months\":60,\"location\":\"TX\"}')",
       "Bash(python3 -m json.tool)",
       "Bash(curl -s http://localhost:8000/api/v1/applications/APP-DEMO-002)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(python *)"
     ]
   }
 }
