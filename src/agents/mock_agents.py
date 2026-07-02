@@ -6,6 +6,7 @@ from src.models.schemas import (
     ComplianceOutput,
     DecisionOutput,
 )
+from src.agents.decision_rules import DecisionRulesEngine
 
 
 def mock_applicant_profile(applicant_data: dict) -> ApplicantProfileOutput:
@@ -71,38 +72,52 @@ def mock_loan_decision(
     profile_output: ApplicantProfileOutput,
     financial_output: FinancialRiskOutput,
     compliance_output: ComplianceOutput,
+    applicant_data: dict = None,
 ) -> DecisionOutput:
-    """Generate instant mock loan decision"""
-    profile_score = profile_output.income_stability_score * 100
-    financial_score = 100 - financial_output.overall_financial_risk_score
+    """Generate instant mock loan decision using real decision rules"""
+    if applicant_data is None:
+        applicant_data = {}
+
+    # Use the real DecisionRulesEngine to calculate risk score with actual applicant data
+    risk_result = DecisionRulesEngine.calculate_risk_score(
+        credit_score=applicant_data.get("credit_score", 700),
+        annual_income=applicant_data.get("annual_income", 50000),
+        existing_liabilities=applicant_data.get("existing_liabilities", 0),
+        loan_amount=applicant_data.get("loan_amount", 25000),
+        employment_duration=applicant_data.get("employment_duration_months", profile_output.employment_duration_months),
+        tenure_months=applicant_data.get("loan_tenure_months", 60),
+        age=applicant_data.get("age", 35),
+    )
+
+    risk_score = risk_result["risk_score"]
+    confidence_level = 0.75
+
+    # Check compliance
     compliance_ok = compliance_output.compliance_status == "compliant"
 
-    combined_score = (profile_score * 0.35 + financial_score * 0.50) * (1.0 if compliance_ok else 0.7)
+    # Apply hard rejection rules
+    hard_rejection_factors = risk_result.get("hard_rejection_factors", [])
+    if not compliance_ok:
+        hard_rejection_factors.append("Compliance check failed")
 
-    if combined_score > 70 and compliance_ok:
-        classification = "Approved"
-        approved_amount = 50000
-        confidence = 0.95
-    elif combined_score > 50:
-        classification = "Requires Manual Review"
-        approved_amount = None
-        confidence = 0.65
-    else:
-        classification = "Rejected"
-        approved_amount = None
-        confidence = 0.90
+    # Make decision using real rules
+    classification, decision_reason = DecisionRulesEngine.make_decision(
+        risk_score, confidence_level, hard_rejection_factors
+    )
+
+    approved_amount = applicant_data.get("loan_amount", 25000) if classification == "Approved" else None
 
     return DecisionOutput(
         classification=classification,
-        risk_score=max(0, 100 - combined_score),
-        confidence_level=confidence,
+        risk_score=float(risk_score),
+        confidence_level=confidence_level,
         approved_loan_amount=approved_amount,
         key_decision_factors=[
-            f"Profile stability: {profile_score:.1f}/100",
-            f"Financial health: {financial_score:.1f}/100",
+            f"Profile stability: {profile_output.income_stability_score*100:.1f}/100",
+            f"Financial health: {100 - financial_output.overall_financial_risk_score:.1f}/100",
             f"Compliance: {'Approved' if compliance_ok else 'Review Required'}",
         ],
         conditions=[],
-        explanation="Decision based on applicant profile, financial analysis, and compliance checks.",
-        escalation_reason=None if classification != "Requires Manual Review" else "Borderline case",
+        explanation=decision_reason,
+        escalation_reason=decision_reason if classification == "Requires Manual Review" else None,
     )

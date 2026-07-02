@@ -37,7 +37,7 @@ def loan_decision_agent(
         profile = mock_applicant_profile(applicant_data)
         risk = mock_financial_risk(applicant_data)
         compliance = mock_compliance_check(applicant_data)
-        decision = mock_loan_decision(profile, risk, compliance)
+        decision = mock_loan_decision(profile, risk, compliance, applicant_data)
         return decision
 
     model = settings.anthropic_model
