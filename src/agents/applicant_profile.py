@@ -5,11 +5,15 @@ from anthropic import Anthropic
 from src.models.schemas import ApplicantProfileOutput
 from src.logger import get_logger
 from src.config import get_settings
+from src.agents.mock_agents import mock_applicant_profile
 
 logger = get_logger(__name__)
 settings = get_settings()
 
-client = Anthropic(api_key=settings.anthropic_api_key)
+try:
+    client = Anthropic(api_key=settings.anthropic_api_key) if settings.anthropic_api_key and not settings.anthropic_api_key.startswith("your_") else None
+except:
+    client = None
 
 
 def applicant_profile_agent(applicant_data: dict, mcp_tools: list) -> ApplicantProfileOutput:
@@ -23,6 +27,9 @@ def applicant_profile_agent(applicant_data: dict, mcp_tools: list) -> ApplicantP
     Returns:
         ApplicantProfileOutput with analysis results
     """
+
+    if not client or settings.demo_mode:
+        return mock_applicant_profile(applicant_data)
 
     model = settings.anthropic_model
 

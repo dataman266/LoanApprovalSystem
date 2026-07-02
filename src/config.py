@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
     anthropic_model: str = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 
+    # Demo Mode
+    demo_mode: bool = os.getenv("DEMO_MODE", "false").lower() == "true"
+
     class Config:
         env_file = ".env"
         case_sensitive = False

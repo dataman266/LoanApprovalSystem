@@ -15,7 +15,25 @@
       "Bash(curl -s http://localhost:8004/health)",
       "Bash(curl -X POST http://localhost:8000/api/v1/applications/submit -H 'Content-Type: application/json' -d '{ *)",
       "Bash(git add *)",
-      "Bash(git commit -m 'Fix timeout and MCP server startup issues *)"
+      "Bash(git commit -m 'Fix timeout and MCP server startup issues *)",
+      "Bash(pkill -f \"scripts/run_api.py\")",
+      "Bash(pkill -f \"uvicorn.*8000\")",
+      "Bash(python scripts/run_api.py)",
+      "Bash(curl -X POST http://localhost:8000/api/v1/applications/submit -H 'Content-Type: application/json' -d '{\"applicant_id\":\"test1\",\"applicant_name\":\"Test User\",\"age\":35,\"credit_score\":720,\"annual_income\":75000,\"employment_months\":36,\"loan_amount\":25000,\"loan_tenure_months\":60}' --max-time 10)",
+      "Bash(curl -s http://localhost:8000/api/v1/applications/submit -X POST -H 'Content-Type: application/json' -d '{\"applicant_id\":\"test1\",\"applicant_name\":\"Test\",\"age\":35,\"credit_score\":720,\"annual_income\":75000,\"employment_months\":36,\"loan_amount\":25000,\"loan_tenure_months\":60}' --max-time 5)",
+      "Bash(pkill -9 -f \"python.*run_api\")",
+      "Bash(pkill -9 -f \"uvicorn\")",
+      "Bash(curl -s -w '\\\\n%{http_code}\\\\n' -X POST http://localhost:8000/api/v1/applications/submit -H 'Content-Type: application/json' -d '{\"applicant_id\":\"test1\",\"applicant_name\":\"Test\",\"age\":35,\"credit_score\":720,\"annual_income\":75000,\"employment_months\":36,\"loan_amount\":25000,\"loan_tenure_months\":60}' --max-time 5)",
+      "Bash(sudo mysql *)",
+      "Bash(mysql -h localhost -u root -p '' -e \"SELECT 1;\")",
+      "Bash(curl -s http://localhost:8000/docs)",
+      "Bash(curl -X POST http://localhost:8000/api/v1/applications -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/applications -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/applications -H 'Content-Type: application/json' -d '{\"applicant_id\":\"APP-DEMO-002\",\"applicant_name\":\"Jane Smith\",\"age\":40,\"employment_type\":\"employed\",\"employment_duration_months\":60,\"annual_income\":95000,\"credit_score\":780,\"existing_liabilities\":200,\"loan_amount\":75000,\"loan_tenure_months\":60,\"location\":\"TX\"}')",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s http://localhost:8000/api/v1/applications/APP-DEMO-002)",
+      "Bash(git commit *)"
     ]
   }
 }

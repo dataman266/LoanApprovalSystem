@@ -5,11 +5,15 @@ from anthropic import Anthropic
 from src.models.schemas import FinancialRiskOutput
 from src.logger import get_logger
 from src.config import get_settings
+from src.agents.mock_agents import mock_financial_risk
 
 logger = get_logger(__name__)
 settings = get_settings()
 
-client = Anthropic(api_key=settings.anthropic_api_key)
+try:
+    client = Anthropic(api_key=settings.anthropic_api_key) if settings.anthropic_api_key and not settings.anthropic_api_key.startswith("your_") else None
+except:
+    client = None
 
 
 def financial_risk_agent(applicant_data: dict, mcp_tools: list) -> FinancialRiskOutput:
@@ -23,6 +27,9 @@ def financial_risk_agent(applicant_data: dict, mcp_tools: list) -> FinancialRisk
     Returns:
         FinancialRiskOutput with risk analysis
     """
+
+    if not client or settings.demo_mode:
+        return mock_financial_risk(applicant_data)
 
     model = settings.anthropic_model
 

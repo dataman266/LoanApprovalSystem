@@ -6,11 +6,15 @@ from src.models.schemas import DecisionOutput
 from src.logger import get_logger
 from src.config import get_settings
 from src.agents.decision_rules import DecisionRulesEngine, generate_decision_factors
+from src.agents.mock_agents import mock_loan_decision, mock_applicant_profile, mock_financial_risk, mock_compliance_check
 
 logger = get_logger(__name__)
 settings = get_settings()
 
-client = Anthropic(api_key=settings.anthropic_api_key)
+try:
+    client = Anthropic(api_key=settings.anthropic_api_key) if settings.anthropic_api_key and not settings.anthropic_api_key.startswith("your_") else None
+except:
+    client = None
 
 
 def loan_decision_agent(
@@ -28,6 +32,20 @@ def loan_decision_agent(
     Returns:
         DecisionOutput with decision classification and reasoning
     """
+
+    if not client or settings.demo_mode:
+        profile = mock_applicant_profile(applicant_data)
+        risk = mock_financial_risk(applicant_data)
+        compliance = mock_compliance_check(applicant_data)
+        decision = mock_loan_decision(profile, risk, compliance)
+        return DecisionOutput(
+            classification=decision.classification,
+            risk_score=decision.risk_score,
+            approved_loan_amount=decision.approved_loan_amount,
+            key_decision_factors=decision.key_decision_factors,
+            explanation=decision.explanation,
+            escalation_reason=decision.escalation_reason,
+        )
 
     model = settings.anthropic_model
 
