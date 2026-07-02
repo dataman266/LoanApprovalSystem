@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: loan_api
+    ports:
+      - "8000:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - DATABASE_URL=sqlite:///data/loan_system.db
+      - DECISION_TIMEOUT_SECONDS=30
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    command: python3 scripts/run_api.py
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - loan_network
+
+  ui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: loan_ui
+    ports:
+      - "8501:8501"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    command: streamlit run src/ui/app.py --server.port=8501 --server.address=0.0.0.0
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - loan_network
+
+networks:
+  loan_network:
+    driver: bridge
+
+volumes:
+  data:
+  logs:

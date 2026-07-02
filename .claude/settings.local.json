@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tail -50 /tmp/api.log 2>&1 | head -100)",
+      "Read(//tmp/**)"
+    ]
+  }
+}
