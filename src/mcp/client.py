@@ -39,17 +39,10 @@ class MCPClient:
                 logger.warning(f"MCP Server unavailable: {server_name} - {str(e)}")
 
     def call_tool(self, server: str, tool_name: str, **kwargs) -> Dict[str, Any]:
-        """
-        Call a tool on an MCP server.
-        Falls back to mock if server unavailable.
-        """
-        if not self._servers_available.get(server, False):
-            logger.warning(f"Using fallback for {server}.{tool_name}")
-            return self._fallback_tool(server, tool_name, **kwargs)
-
+        """Call a tool on real MCP server"""
         try:
-            url = f"{MCP_SERVERS[server]}/tool/{tool_name}"
-            response = self.client.post(url, json=kwargs)
+            url = f"{MCP_SERVERS[server]}/{server}/{tool_name}"
+            response = self.client.post(url, json={"params": kwargs})
             response.raise_for_status()
             return response.json()
         except Exception as e:

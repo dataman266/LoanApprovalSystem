@@ -1,37 +1,58 @@
-"""RiskRulesDB MCP Server - Financial risk analysis and compliance rules"""
+"""RiskRulesDB MCP Server - Real database risk rules"""
 
 from mcp.server.fastmcp import FastMCP
-from src.mcp.mock_data import get_risk_thresholds, generate_anomalies
+from sqlalchemy import create_engine, Column, String, Float
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from src.config import get_settings
+from src.logger import get_logger
 
+logger = get_logger(__name__)
+settings = get_settings()
+
+Base = declarative_base()
+engine = create_engine(settings.database_url, pool_recycle=3600, echo=False)
+Session = sessionmaker(bind=engine)
+
+
+class RiskThreshold(Base):
+    __tablename__ = "risk_thresholds"
+    threshold_id = Column(String(36), primary_key=True)
+    threshold_name = Column(String(100), unique=True)
+    threshold_value = Column(Float)
+
+
+Base.metadata.create_all(engine)
 mcp = FastMCP("RiskRulesDB")
+
+
+def get_risk_thresholds_from_db() -> dict:
+    session = Session()
+    try:
+        thresholds = session.query(RiskThreshold).all()
+        return {t.threshold_name: t.threshold_value for t in thresholds}
+    finally:
+        session.close()
 
 
 @mcp.tool()
 def calculate_dti(monthly_income: float, monthly_liabilities: float) -> dict:
-    """
-    Calculate Debt-to-Income (DTI) ratio.
-
-    Args:
-        monthly_income: Monthly income in dollars
-        monthly_liabilities: Monthly debt obligations in dollars
-
-    Returns:
-        Dict with DTI ratio and risk assessment
-    """
+    """Calculate DTI ratio using real database thresholds"""
     if monthly_income <= 0:
-        return {
-            "error": "Invalid income",
-            "dti": None,
-        }
+        return {"error": "Invalid income", "dti": None}
 
     dti = monthly_liabilities / monthly_income
-    thresholds = get_risk_thresholds()
+    thresholds = get_risk_thresholds_from_db()
 
-    if dti <= thresholds["dti_low_threshold"]:
+    dti_low = thresholds.get("dti_low_threshold", 0.36)
+    dti_medium = thresholds.get("dti_medium_threshold", 0.50)
+    dti_high = thresholds.get("dti_high_threshold", 0.70)
+
+    if dti <= dti_low:
         risk_level = "low"
-    elif dti <= thresholds["dti_medium_threshold"]:
+    elif dti <= dti_medium:
         risk_level = "medium"
-    elif dti <= thresholds["dti_high_threshold"]:
+    elif dti <= dti_high:
         risk_level = "high"
     else:
         risk_level = "critical"
@@ -46,24 +67,20 @@ def calculate_dti(monthly_income: float, monthly_liabilities: float) -> dict:
 
 @mcp.tool()
 def get_credit_score_risk_level(credit_score: int) -> dict:
-    """
-    Determine credit score risk level.
+    """Determine credit score risk level from database thresholds"""
+    thresholds = get_risk_thresholds_from_db()
 
-    Args:
-        credit_score: Credit score (300-850)
+    cs_low = int(thresholds.get("credit_score_low", 580))
+    cs_medium = int(thresholds.get("credit_score_medium", 620))
+    cs_high = int(thresholds.get("credit_score_high", 740))
 
-    Returns:
-        Dict with risk level and reasoning
-    """
-    thresholds = get_risk_thresholds()
-
-    if credit_score < thresholds["credit_score_low"]:
+    if credit_score < cs_low:
         risk_level = "high"
-        reasoning = "Credit score below minimum threshold for auto-approval"
-    elif credit_score < thresholds["credit_score_medium"]:
+        reasoning = "Credit score below minimum threshold"
+    elif credit_score < cs_medium:
         risk_level = "medium"
         reasoning = "Credit score indicates moderate risk"
-    elif credit_score < thresholds["credit_score_high"]:
+    elif credit_score < cs_high:
         risk_level = "medium"
         reasoning = "Credit score indicates acceptable risk"
     else:
@@ -81,24 +98,16 @@ def get_credit_score_risk_level(credit_score: int) -> dict:
 def calculate_loan_amount_risk(
     loan_amount: float, annual_income: float, dti_ratio: float
 ) -> dict:
-    """
-    Calculate affordability risk based on loan amount relative to income and DTI.
-
-    Args:
-        loan_amount: Requested loan amount
-        annual_income: Annual income
-        dti_ratio: Current debt-to-income ratio
-
-    Returns:
-        Dict with loan amount risk assessment
-    """
-    thresholds = get_risk_thresholds()
+    """Calculate loan amount risk from real thresholds"""
+    thresholds = get_risk_thresholds_from_db()
 
     loan_to_income = loan_amount / max(1, annual_income)
+    dti_high = thresholds.get("dti_high_threshold", 0.70)
+    max_lti = thresholds.get("max_loan_to_income_ratio", 5.0)
 
-    if dti_ratio > thresholds["dti_high_threshold"]:
+    if dti_ratio > dti_high:
         risk_level = "high"
-    elif loan_to_income > thresholds["max_loan_to_income_ratio"]:
+    elif loan_to_income > max_lti:
         risk_level = "high"
     elif loan_to_income > 3.0:
         risk_level = "medium"
@@ -115,16 +124,17 @@ def calculate_loan_amount_risk(
 
 @mcp.tool()
 def detect_anomalies(applicant_data: dict) -> dict:
-    """
-    Detect potential fraud or unusual patterns in applicant data.
+    """Detect anomalies in applicant data"""
+    anomalies = []
 
-    Args:
-        applicant_data: Dict with applicant financial data
-
-    Returns:
-        Dict with detected anomalies
-    """
-    anomalies = generate_anomalies(applicant_data)
+    if applicant_data.get("income", 0) <= 0:
+        anomalies.append("invalid_income")
+    if applicant_data.get("age", 0) < 18 or applicant_data.get("age", 0) > 120:
+        anomalies.append("invalid_age")
+    if applicant_data.get("credit_score", 0) < 300 or applicant_data.get("credit_score", 0) > 850:
+        anomalies.append("invalid_credit_score")
+    if applicant_data.get("liabilities", 0) > applicant_data.get("income", 1):
+        anomalies.append("high_liabilities_to_income")
 
     severity = "low" if len(anomalies) == 0 else "medium" if len(anomalies) <= 2 else "high"
 
@@ -138,16 +148,10 @@ def detect_anomalies(applicant_data: dict) -> dict:
 
 @mcp.tool()
 def get_risk_thresholds_tool() -> dict:
-    """
-    Get the current risk thresholds and regulatory limits.
-
-    Returns:
-        Dict with all risk thresholds and regulatory limits
-    """
-    return get_risk_thresholds()
+    """Get risk thresholds from database"""
+    return get_risk_thresholds_from_db()
 
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(mcp.app, host="0.0.0.0", port=8002)
