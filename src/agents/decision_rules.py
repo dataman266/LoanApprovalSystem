@@ -237,10 +237,12 @@ class DecisionRulesEngine:
     def make_decision(
         risk_score: float, confidence: float, hard_rejection_factors: List[str] = None, evaluations: Dict = None
     ) -> Tuple[str, str]:
-        """Make final decision based on risk score, confidence, and evaluation details"""
+        """Make final LLM-powered decision based on risk score and evaluation details.
+        All decisions are made by Claude - no manual review escalation."""
         if hard_rejection_factors is None:
             hard_rejection_factors = []
 
+        # Hard rejection criteria - automatic rejection
         if hard_rejection_factors:
             reasons = ", ".join(hard_rejection_factors)
             return "Rejected", f"Hard rejection rule triggered: {reasons}"
@@ -251,23 +253,27 @@ class DecisionRulesEngine:
         if risk_score >= 75:
             return "Rejected", "Risk score high (≥75) - application rejected"
 
-        # Check if applicant has poor credit - require manual review even with low risk score
-        if evaluations and evaluations.get("credit_score", ("unknown", 0))[0] in ["poor", "very_poor"]:
-            return "Requires Manual Review", f"Poor credit score requires manual review despite low risk score ({risk_score}/100)"
+        # Poor/very poor credit: Rejected (let LLM handle, not manual review)
+        if evaluations and evaluations.get("credit_score", ("unknown", 0))[0] in ["very_poor"]:
+            return "Rejected", f"Very poor credit score ({evaluations['credit_score'][2]}) - application rejected"
 
-        if risk_score < 15:
-            return "Approved", f"Very low risk score ({risk_score}/100) - approved"
+        if evaluations and evaluations.get("credit_score", ("unknown", 0))[0] == "poor":
+            return "Rejected", f"Poor credit score ({evaluations['credit_score'][2]}) - application rejected"
 
-        if risk_score < 25 and confidence >= 0.80:
-            return "Approved", f"Low risk score ({risk_score}/100) with high confidence ({confidence:.0%})"
+        # Low risk: approve
+        if risk_score < 25:
+            return "Approved", f"Low risk score ({risk_score}/100) - application approved"
 
-        if confidence < 0.60:
-            return "Requires Manual Review", f"Low confidence ({confidence:.0%}) - requires manual review"
+        # Moderate risk: approve if confidence is adequate
+        if risk_score < 50 and confidence >= 0.65:
+            return "Approved", f"Moderate risk score ({risk_score}/100) approved with sufficient confidence ({confidence:.0%})"
 
-        if 15 <= risk_score < 75:
-            return "Requires Manual Review", f"Risk score {risk_score}/100 - requires expert review"
+        # Higher risk: still approve if LLM confidence is high
+        if risk_score < 70 and confidence >= 0.75:
+            return "Approved", f"Higher risk score ({risk_score}/100) approved with high confidence ({confidence:.0%})"
 
-        return "Requires Manual Review", f"Risk score {risk_score}/100 - manual review recommended"
+        # Default: reject if risk is too high
+        return "Rejected", f"Risk score {risk_score}/100 exceeds approval threshold"
 
 
 def generate_decision_factors(evaluations: Dict, risk_score: int) -> List[str]:
