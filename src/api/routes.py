@@ -1,7 +1,7 @@
 """API routes for loan application processing"""
 
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from src.models.schemas import (
@@ -51,6 +51,7 @@ def _update_application_results(db_app: LoanApplication, result_state: dict) -> 
 @router.post("/applications")
 async def submit_application(
     request: LoanApplicationRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     """Submit a new loan application for processing"""
@@ -68,7 +69,7 @@ async def submit_application(
         applicant_id=application_id,
         applicant_name=request.applicant_name,
         input_data=request.model_dump(mode='json'),
-        status="pending",
+        status="processing",
         created_at=datetime.utcnow(),
     )
 
@@ -78,28 +79,53 @@ async def submit_application(
     logger.info("Application record created", application_id=application_id)
 
     try:
-        result_state = process_loan_application(
+        background_tasks.add_task(
+            _process_application_background,
             application_id,
             request.applicant_id,
             request,
         )
-        _update_application_results(db_app, result_state)
-        db.commit()
-
-        logger.info(
-            "Application processed",
-            application_id=application_id,
-            status=db_app.status,
-        )
+        logger.info("Application queued for processing", application_id=application_id)
 
     except Exception as e:
-        logger.error("Processing error", application_id=application_id, error=str(e))
+        logger.error("Queueing error", application_id=application_id, error=str(e))
         db_app.status = "error"
         db_app.error_log = [str(e)]
         db_app.completed_at = datetime.utcnow()
         db.commit()
 
-    return {"application_id": application_id}
+    return {"application_id": application_id, "status": "processing"}
+
+
+def _process_application_background(
+    application_id: str,
+    applicant_id: str,
+    request: LoanApplicationRequest,
+):
+    """Process application in background"""
+    from src.database import SessionLocal
+    db = SessionLocal()
+    try:
+        db_app = db.query(LoanApplication).filter(LoanApplication.id == application_id).first()
+        if not db_app:
+            return
+
+        result_state = process_loan_application(
+            application_id,
+            applicant_id,
+            request,
+        )
+        _update_application_results(db_app, result_state)
+        db.commit()
+        logger.info("Application processed", application_id=application_id, status=db_app.status)
+    except Exception as e:
+        logger.error("Background processing error", application_id=application_id, error=str(e))
+        db_app.status = "error"
+        db_app.error_log = [str(e)]
+        db_app.completed_at = datetime.utcnow()
+        db.commit()
+    finally:
+        db.close()
 
 
 def _get_application_or_404(application_id: str, db: Session) -> LoanApplication:
