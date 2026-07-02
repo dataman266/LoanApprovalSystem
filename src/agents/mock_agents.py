@@ -102,7 +102,7 @@ def mock_loan_decision(
 
     # Make decision using real rules
     classification, decision_reason = DecisionRulesEngine.make_decision(
-        risk_score, confidence_level, hard_rejection_factors
+        risk_score, confidence_level, hard_rejection_factors, risk_result["evaluations"]
     )
 
     approved_amount = applicant_data.get("loan_amount", 25000) if classification == "Approved" else None

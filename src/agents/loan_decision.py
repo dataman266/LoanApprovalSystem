@@ -169,7 +169,9 @@ def execute_mock_tool(
 
         risk_score = risk_result["risk_score"]
         confidence = _calculate_confidence(profile)
-        classification, decision_reason = DecisionRulesEngine.make_decision(risk_score, confidence)
+        classification, decision_reason = DecisionRulesEngine.make_decision(
+            risk_score, confidence, evaluations=risk_result.get("evaluations", {})
+        )
 
         return {
             "decision": classification,
@@ -252,7 +254,7 @@ def parse_decision_response(response, applicant_data: dict) -> DecisionOutput:
 
     confidence_level = 0.75
     classification, decision_reason = DecisionRulesEngine.make_decision(
-        risk_score, confidence_level, hard_rejection_factors
+        risk_score, confidence_level, hard_rejection_factors, evaluations
     )
 
     approved_loan_amount = _get_approved_loan_amount(classification, params["loan_amount"])

@@ -13,9 +13,9 @@ class RulesConfig:
         "excellent": {"min": 750, "max": 850, "weight": 0.0},
         "very_good": {"min": 700, "max": 749, "weight": 0.05},
         "good": {"min": 660, "max": 699, "weight": 0.15},
-        "fair": {"min": 620, "max": 659, "weight": 0.30},
-        "poor": {"min": 580, "max": 619, "weight": 0.50},
-        "very_poor": {"min": 300, "max": 579, "weight": 1.0},
+        "fair": {"min": 640, "max": 659, "weight": 0.30},
+        "poor": {"min": 620, "max": 639, "weight": 0.50},
+        "very_poor": {"min": 300, "max": 619, "weight": 1.0},
     }
 
     DTI = {
@@ -220,10 +220,12 @@ class DecisionRulesEngine:
         """Check for hard rejection criteria"""
         factors = []
 
-        if credit_score < 580:
-            factors.append("Credit score < 580")
+        if credit_score < 620:
+            factors.append("Credit score < 620 (poor)")
         if evaluations["dti"][0] == "critical":
             factors.append("DTI ratio ≥ 60%")
+        if evaluations["dti"][0] == "high":
+            factors.append("DTI ratio ≥ 50%")
         if evaluations["employment"][0] == "insufficient":
             factors.append("Employment duration < 6 months")
         if evaluations["lti"][0] == "excessive":
@@ -233,9 +235,9 @@ class DecisionRulesEngine:
 
     @staticmethod
     def make_decision(
-        risk_score: float, confidence: float, hard_rejection_factors: List[str] = None
+        risk_score: float, confidence: float, hard_rejection_factors: List[str] = None, evaluations: Dict = None
     ) -> Tuple[str, str]:
-        """Make final decision based on risk score and confidence"""
+        """Make final decision based on risk score, confidence, and evaluation details"""
         if hard_rejection_factors is None:
             hard_rejection_factors = []
 
@@ -249,17 +251,21 @@ class DecisionRulesEngine:
         if risk_score >= 75:
             return "Rejected", "Risk score high (≥75) - application rejected"
 
-        if risk_score < 25:
+        # Check if applicant has poor credit - require manual review even with low risk score
+        if evaluations and evaluations.get("credit_score", ("unknown", 0))[0] in ["poor", "very_poor"]:
+            return "Requires Manual Review", f"Poor credit score requires manual review despite low risk score ({risk_score}/100)"
+
+        if risk_score < 15:
             return "Approved", f"Very low risk score ({risk_score}/100) - approved"
 
-        if risk_score < 30 and confidence >= 0.80:
+        if risk_score < 25 and confidence >= 0.80:
             return "Approved", f"Low risk score ({risk_score}/100) with high confidence ({confidence:.0%})"
 
         if confidence < 0.60:
             return "Requires Manual Review", f"Low confidence ({confidence:.0%}) - requires manual review"
 
-        if 30 <= risk_score < 75 and confidence >= 0.70:
-            return "Requires Manual Review", f"Moderate risk score ({risk_score}/100) requires expert review"
+        if 15 <= risk_score < 75:
+            return "Requires Manual Review", f"Risk score {risk_score}/100 - requires expert review"
 
         return "Requires Manual Review", f"Risk score {risk_score}/100 - manual review recommended"
 
