@@ -1,6 +1,7 @@
 """RiskRulesDB MCP Server - Real database risk rules"""
 
-from mcp.server.fastmcp import FastMCP
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, String, Float
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -11,7 +12,8 @@ logger = get_logger(__name__)
 settings = get_settings()
 
 Base = declarative_base()
-engine = create_engine(settings.database_url, pool_recycle=3600, echo=False)
+db_url = settings.database_url if "mysql" not in settings.database_url or "localhost:3306" not in settings.database_url else "sqlite:///data/loan_system.db"
+engine = create_engine(db_url, pool_recycle=3600, echo=False)
 Session = sessionmaker(bind=engine)
 
 
@@ -22,8 +24,18 @@ class RiskThreshold(Base):
     threshold_value = Column(Float)
 
 
-Base.metadata.create_all(engine)
-mcp = FastMCP("RiskRulesDB")
+app = FastAPI(title="RiskRulesDB")
+
+@app.on_event("startup")
+def startup():
+    try:
+        Base.metadata.create_all(engine)
+    except Exception as e:
+        logger.error(f"DB init error: {e}")
+
+
+class ToolRequest(BaseModel):
+    params: dict = {}
 
 
 def get_risk_thresholds_from_db() -> dict:
@@ -35,7 +47,19 @@ def get_risk_thresholds_from_db() -> dict:
         session.close()
 
 
-@mcp.tool()
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+@app.post("/risk_rules/calculate_dti")
+def api_calculate_dti(request: ToolRequest):
+    try:
+        return calculate_dti(**request.params)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def calculate_dti(monthly_income: float, monthly_liabilities: float) -> dict:
     """Calculate DTI ratio using real database thresholds"""
     if monthly_income <= 0:
@@ -65,7 +89,14 @@ def calculate_dti(monthly_income: float, monthly_liabilities: float) -> dict:
     }
 
 
-@mcp.tool()
+@app.post("/risk_rules/get_credit_score_risk_level")
+def api_get_credit_score_risk_level(request: ToolRequest):
+    try:
+        return get_credit_score_risk_level(**request.params)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def get_credit_score_risk_level(credit_score: int) -> dict:
     """Determine credit score risk level from database thresholds"""
     thresholds = get_risk_thresholds_from_db()
@@ -94,7 +125,14 @@ def get_credit_score_risk_level(credit_score: int) -> dict:
     }
 
 
-@mcp.tool()
+@app.post("/risk_rules/calculate_loan_amount_risk")
+def api_calculate_loan_amount_risk(request: ToolRequest):
+    try:
+        return calculate_loan_amount_risk(**request.params)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def calculate_loan_amount_risk(
     loan_amount: float, annual_income: float, dti_ratio: float
 ) -> dict:
@@ -122,7 +160,14 @@ def calculate_loan_amount_risk(
     }
 
 
-@mcp.tool()
+@app.post("/risk_rules/detect_anomalies")
+def api_detect_anomalies(request: ToolRequest):
+    try:
+        return detect_anomalies(**request.params)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def detect_anomalies(applicant_data: dict) -> dict:
     """Detect anomalies in applicant data"""
     anomalies = []
@@ -146,7 +191,14 @@ def detect_anomalies(applicant_data: dict) -> dict:
     }
 
 
-@mcp.tool()
+@app.post("/risk_rules/get_risk_thresholds_tool")
+def api_get_risk_thresholds_tool(request: ToolRequest):
+    try:
+        return get_risk_thresholds_tool()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def get_risk_thresholds_tool() -> dict:
     """Get risk thresholds from database"""
     return get_risk_thresholds_from_db()
@@ -154,4 +206,4 @@ def get_risk_thresholds_tool() -> dict:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(mcp.app, host="0.0.0.0", port=8002)
+    uvicorn.run(app, host="0.0.0.0", port=8002)

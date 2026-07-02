@@ -2,7 +2,8 @@
 
 import uuid
 from datetime import datetime
-from mcp.server.fastmcp import FastMCP
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, String, Text, DateTime
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -13,7 +14,8 @@ logger = get_logger(__name__)
 settings = get_settings()
 
 Base = declarative_base()
-engine = create_engine(settings.database_url, pool_recycle=3600, echo=False)
+db_url = settings.database_url if "mysql" not in settings.database_url or "localhost:3306" not in settings.database_url else "sqlite:///data/loan_system.db"
+engine = create_engine(db_url, pool_recycle=3600, echo=False)
 Session = sessionmaker(bind=engine)
 
 
@@ -45,11 +47,34 @@ class Archive(Base):
     immutable = Column(String(5), default="true")
 
 
-Base.metadata.create_all(engine)
-mcp = FastMCP("NotificationSystem")
+app = FastAPI(title="NotificationSystem")
 
 
-@mcp.tool()
+class ToolRequest(BaseModel):
+    params: dict = {}
+
+
+@app.on_event("startup")
+def startup():
+    try:
+        Base.metadata.create_all(engine)
+    except Exception as e:
+        logger.error(f"DB init error: {e}")
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+@app.post("/notification_system/check_regulatory_compliance")
+def api_check_regulatory_compliance(request: ToolRequest):
+    try:
+        return check_regulatory_compliance(**request.params)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def check_regulatory_compliance(applicant_data: dict, decision: str) -> dict:
     """Check regulatory compliance"""
     flags = []
@@ -76,7 +101,14 @@ def check_regulatory_compliance(applicant_data: dict, decision: str) -> dict:
     }
 
 
-@mcp.tool()
+@app.post("/notification_system/create_audit_log")
+def api_create_audit_log(request: ToolRequest):
+    try:
+        return create_audit_log(**request.params)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def create_audit_log(
     application_id: str, decision: str, reasoning: str, timestamp: str
 ) -> dict:
@@ -108,7 +140,14 @@ def create_audit_log(
         session.close()
 
 
-@mcp.tool()
+@app.post("/notification_system/send_notification")
+def api_send_notification(request: ToolRequest):
+    try:
+        return send_notification(**request.params)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def send_notification(applicant_id: str, decision: str, channels: list) -> dict:
     """Send notification and store in database"""
     session = Session()
@@ -142,23 +181,14 @@ def send_notification(applicant_id: str, decision: str, channels: list) -> dict:
         session.close()
 
 
-@mcp.tool()
-def generate_case_id() -> dict:
-    """
-    Generate a unique case ID for the application.
-
-    Returns:
-        Dict with generated case ID
-    """
-    case_id = f"CASE-{datetime.utcnow().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}"
-
-    return {
-        "case_id": case_id,
-        "generated_at": datetime.utcnow().isoformat(),
-    }
+@app.post("/notification_system/archive_application_context")
+def api_archive_application_context(request: ToolRequest):
+    try:
+        return archive_application_context(**request.params)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@mcp.tool()
 def archive_application_context(application_id: str, context: dict) -> dict:
     """Archive application context in database"""
     session = Session()
@@ -189,4 +219,4 @@ def archive_application_context(application_id: str, context: dict) -> dict:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(mcp.app, host="0.0.0.0", port=8004)
+    uvicorn.run(app, host="0.0.0.0", port=8004)

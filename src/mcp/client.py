@@ -22,7 +22,7 @@ class MCPClient:
     """Unified MCP client for all server connections"""
 
     def __init__(self):
-        self.client = httpx.Client(timeout=TIMEOUT)
+        self.client = httpx.Client(timeout=5.0)
         self._servers_available = {}
         self._check_servers()
 
@@ -30,13 +30,13 @@ class MCPClient:
         """Check which MCP servers are available"""
         for server_name, url in MCP_SERVERS.items():
             try:
-                response = self.client.get(f"{url}/docs", timeout=5.0)
+                response = self.client.get(f"{url}/health", timeout=2.0)
                 self._servers_available[server_name] = response.status_code == 200
                 if self._servers_available[server_name]:
                     logger.info(f"MCP Server available: {server_name}")
             except Exception as e:
                 self._servers_available[server_name] = False
-                logger.warning(f"MCP Server unavailable: {server_name} - {str(e)}")
+                logger.warning(f"MCP Server unavailable: {server_name}")
 
     def call_tool(self, server: str, tool_name: str, **kwargs) -> Dict[str, Any]:
         """Call a tool on real MCP server"""

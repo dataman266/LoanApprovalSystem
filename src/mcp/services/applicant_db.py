@@ -3,7 +3,8 @@
 import json
 from datetime import datetime
 from typing import Optional
-from mcp.server.fastmcp import FastMCP
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -15,7 +16,8 @@ settings = get_settings()
 
 # Database setup
 Base = declarative_base()
-engine = create_engine(settings.database_url, pool_recycle=3600, echo=False)
+db_url = settings.database_url if "mysql" not in settings.database_url or "localhost:3306" not in settings.database_url else "sqlite:///data/loan_system.db"
+engine = create_engine(db_url, pool_recycle=3600, echo=False)
 Session = sessionmaker(bind=engine)
 
 
@@ -52,11 +54,33 @@ class CreditHistory(Base):
     credit_utilization_ratio = Column(Float)
 
 
-Base.metadata.create_all(engine)
-mcp = FastMCP("ApplicantDB")
+app = FastAPI(title="ApplicantDB")
+
+@app.on_event("startup")
+def startup():
+    try:
+        Base.metadata.create_all(engine)
+    except Exception as e:
+        logger.error(f"DB init error: {e}")
 
 
-@mcp.tool()
+class ToolRequest(BaseModel):
+    params: dict = {}
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+@app.post("/applicant_db/get_applicant_profile")
+def api_get_applicant_profile(request: ToolRequest):
+    try:
+        return get_applicant_profile(**request.params)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def get_applicant_profile(applicant_id: str) -> dict:
     """Fetch applicant profile from real database"""
     session = Session()
@@ -78,7 +102,14 @@ def get_applicant_profile(applicant_id: str) -> dict:
         session.close()
 
 
-@mcp.tool()
+@app.post("/applicant_db/get_employment_history")
+def api_get_employment_history(request: ToolRequest):
+    try:
+        return get_employment_history(**request.params)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def get_employment_history(applicant_id: str) -> dict:
     """Fetch employment history from real database"""
     session = Session()
@@ -100,7 +131,14 @@ def get_employment_history(applicant_id: str) -> dict:
         session.close()
 
 
-@mcp.tool()
+@app.post("/applicant_db/get_credit_history")
+def api_get_credit_history(request: ToolRequest):
+    try:
+        return get_credit_history(**request.params)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def get_credit_history(applicant_id: str) -> dict:
     """Fetch credit history from real database"""
     session = Session()
@@ -124,7 +162,14 @@ def get_credit_history(applicant_id: str) -> dict:
         session.close()
 
 
-@mcp.tool()
+@app.post("/applicant_db/validate_application_completeness")
+def api_validate_application_completeness(request: ToolRequest):
+    try:
+        return validate_application_completeness(**request.params)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def validate_application_completeness(applicant_id: str) -> dict:
     """Validate application completeness in real database"""
     session = Session()
@@ -158,4 +203,4 @@ def validate_application_completeness(applicant_id: str) -> dict:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(mcp.app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

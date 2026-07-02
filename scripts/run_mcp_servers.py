@@ -45,7 +45,7 @@ def start_mcp_server(service_key, service_config):
     cmd = [
         sys.executable,
         "-c",
-        f"from {module} import mcp; import uvicorn; uvicorn.run(mcp.app, host='0.0.0.0', port={port}, log_level='info')",
+        f"from {module} import app; import uvicorn; uvicorn.run(app, host='0.0.0.0', port={port}, log_level='error')",
     ]
 
     print(f"Starting {name} on port {port}...")
@@ -53,7 +53,7 @@ def start_mcp_server(service_key, service_config):
         cmd,
         cwd=str(project_root),
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
+        stderr=subprocess.PIPE,
         text=True,
     )
 

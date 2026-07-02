@@ -2,7 +2,20 @@
   "permissions": {
     "allow": [
       "Bash(tail -50 /tmp/api.log 2>&1 | head -100)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(pkill -f run_mcp_servers.py)",
+      "Bash(python /home/ubuntu/Desktop/Assignment/scripts/run_mcp_servers.py)",
+      "Bash(curl -s http://localhost:8001/health)",
+      "Bash(curl -s http://localhost:8002/health)",
+      "Bash(curl -s http://localhost:8003/health)",
+      "Bash(python -c ' *)",
+      "Bash(pkill -f \"python -c\")",
+      "Bash(pkill -f run_mcp_servers)",
+      "Bash(python -c \"from src.mcp.services.decision_synthesis import app; import uvicorn; uvicorn.run\\(app, host='0.0.0.0', port=8003, log_level='error'\\)\")",
+      "Bash(curl -s http://localhost:8004/health)",
+      "Bash(curl -X POST http://localhost:8000/api/v1/applications/submit -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Fix timeout and MCP server startup issues *)"
     ]
   }
 }
