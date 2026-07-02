@@ -4,6 +4,7 @@ import streamlit as st
 import requests
 import json
 from datetime import datetime
+import uuid
 
 st.set_page_config(
     page_title="Loan Approval System",
@@ -20,6 +21,18 @@ API_URL = "http://localhost:8000/api/v1"
 # Initialize session state
 if "submitted_applications" not in st.session_state:
     st.session_state.submitted_applications = []
+
+# Track application counter for chronological IDs
+if "app_counter" not in st.session_state:
+    st.session_state.app_counter = 0
+
+
+def generate_applicant_id() -> str:
+    """Generate chronological applicant ID"""
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    st.session_state.app_counter += 1
+    counter = str(st.session_state.app_counter).zfill(4)
+    return f"APP-{timestamp}-{counter}"
 
 
 def _handle_api_error(error_type: str, error: Exception) -> None:
@@ -65,80 +78,133 @@ def get_application_status(application_id: str) -> dict:
 
 
 def _display_decision_status(result: dict) -> None:
-    """Display color-coded decision status"""
+    """Display color-coded decision status with detailed metrics"""
     classification = result["classification"]
 
     if classification == "Approved":
-        st.success(f"✅ **APPROVED**", icon="✅")
-        col1, col2 = st.columns(2)
+        st.success(f"✅ **APPLICATION APPROVED**", icon="✅")
+        col1, col2, col3 = st.columns(3)
         with col1:
             loan_amount = result.get('approved_loan_amount')
-            amount_text = f"${loan_amount:,.2f}" if loan_amount else "TBD"
+            amount_text = f"${loan_amount:,.2f}" if loan_amount else "N/A"
             st.metric("Approved Loan Amount", amount_text)
         with col2:
-            st.metric("Risk Score", f"{result['risk_score']:.1f}/100")
+            st.metric("Risk Score", f"{result['risk_score']:.1f}/100", delta="Low Risk")
+        with col3:
+            st.metric("Confidence Level", f"{result['confidence_level']:.0%}")
 
     elif classification == "Rejected":
-        st.error(f"❌ **REJECTED**", icon="❌")
-        st.metric("Risk Score", f"{result['risk_score']:.1f}/100")
+        st.error(f"❌ **APPLICATION REJECTED**", icon="❌")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Risk Score", f"{result['risk_score']:.1f}/100", delta="High Risk")
+        with col2:
+            st.metric("Confidence Level", f"{result['confidence_level']:.0%}")
+        with col3:
+            st.metric("Decision", "Final")
 
     else:
         st.warning(f"⏳ **REQUIRES MANUAL REVIEW**", icon="⚠️")
-        st.metric("Risk Score", f"{result['risk_score']:.1f}/100")
-        if result.get("escalation_reason"):
-            st.info(f"**Reason:** {result['escalation_reason']}")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Risk Score", f"{result['risk_score']:.1f}/100")
+        with col2:
+            st.metric("Confidence Level", f"{result['confidence_level']:.0%}")
 
 
-def _display_decision_details(result: dict) -> None:
-    """Display decision explanation and supporting details"""
-    st.subheader("Decision Explanation")
-    st.write(result.get("explanation", "No explanation available"))
+def _display_detailed_evaluation(result: dict) -> None:
+    """Display detailed evaluation report with reasoning"""
+    st.subheader("📋 Detailed Evaluation Report")
 
+    # Decision Summary
+    st.write("---")
+    st.markdown("### Decision Summary")
+    explanation = result.get("explanation", "No explanation available")
+
+    if result["classification"] == "Rejected":
+        st.error(f"**Reason for Rejection:** {explanation}")
+    elif result["classification"] == "Approved":
+        st.success(f"**Approval Reason:** {explanation}")
+    else:
+        st.warning(f"**Review Reason:** {explanation}")
+
+    st.write("---")
+
+    # Key Decision Factors
     if result.get("key_decision_factors"):
-        st.subheader("Key Decision Factors")
-        for factor in result["key_decision_factors"]:
-            st.write(f"• {factor}")
+        st.markdown("### ✓ Key Decision Factors")
+        for i, factor in enumerate(result["key_decision_factors"], 1):
+            st.write(f"{i}. {factor}")
 
+    st.write("---")
+
+    # Risk Assessment
+    st.markdown("### 📊 Risk Assessment")
+    risk_score = result.get('risk_score', 0)
+
+    if risk_score < 25:
+        risk_level = "🟢 Very Low Risk"
+    elif risk_score < 50:
+        risk_level = "🟡 Low-Moderate Risk"
+    elif risk_score < 75:
+        risk_level = "🟠 Moderate-High Risk"
+    else:
+        risk_level = "🔴 High Risk"
+
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.write(f"**Risk Level:** {risk_level}")
+    with col2:
+        st.write(f"**Score:** {risk_score:.1f}/100")
+
+    st.write("---")
+
+    # Conditions (if any)
     if result.get("conditions"):
-        st.subheader("Conditions")
+        st.markdown("### 📋 Approval Conditions")
         for condition in result["conditions"]:
             st.write(f"• {condition}")
 
-    st.metric("Confidence Level", f"{result['confidence_level']:.0%}")
+    # Escalation Reason (if manual review)
+    if result.get("escalation_reason"):
+        st.markdown("### ⚠️ Escalation Reason")
+        st.info(result["escalation_reason"])
 
 
 def display_decision(application_data: dict) -> None:
-    """Display decision and reasoning"""
+    """Display decision and detailed reasoning"""
     if not application_data or not application_data.get("result"):
-        st.warning("Decision not yet available. Please check back in a moment.")
+        st.warning("⏳ Decision not yet available. Please check back in a moment...")
         return
 
     result = application_data["result"]
     _display_decision_status(result)
-    _display_decision_details(result)
+    st.divider()
+    _display_detailed_evaluation(result)
 
 
 def _create_application_form() -> dict:
     """Create and return loan application form with user inputs"""
+    st.info("💡 Applicant ID will be auto-generated after submission")
+
     col1, col2 = st.columns(2)
 
     with col1:
-        applicant_id = st.text_input("Applicant ID", value=f"APP-{datetime.now().strftime('%Y%m%d%H%M%S')}")
         applicant_name = st.text_input("Full Name", placeholder="John Doe")
         age = st.number_input("Age", min_value=18, max_value=100, value=35)
         annual_income = st.number_input("Annual Income ($)", min_value=10000, value=75000, step=5000)
+        credit_score = st.number_input("Credit Score", min_value=300, max_value=850, value=720)
 
     with col2:
-        credit_score = st.number_input("Credit Score", min_value=300, max_value=850, value=720)
         existing_liabilities = st.number_input("Monthly Liabilities ($)", min_value=0, value=500, step=100)
         employment_duration = st.number_input("Employment Duration (months)", min_value=0, max_value=600, value=24)
         location = st.text_input("Location (State)", value="CA", max_chars=2)
-
-    col1, col2 = st.columns(2)
-    with col1:
         loan_amount = st.number_input("Requested Loan Amount ($)", min_value=1000, value=50000, step=1000)
-    with col2:
-        loan_tenure = st.number_input("Loan Tenure (months)", min_value=1, max_value=360, value=60)
+
+    loan_tenure = st.number_input("Loan Tenure (months)", min_value=1, max_value=360, value=60)
+
+    # Generate applicant ID automatically
+    applicant_id = generate_applicant_id()
 
     return {
         "applicant_id": applicant_id,
