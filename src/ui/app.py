@@ -113,48 +113,80 @@ def _display_decision_status(result: dict) -> None:
 
 
 def _display_detailed_evaluation(result: dict) -> None:
-    """Display detailed evaluation report with professional formatting"""
+    """Display detailed evaluation report with comprehensive textual information"""
 
     # Main Header
     st.markdown("""
     <div style='background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-bottom: 20px;'>
         <h2 style='margin: 0; color: #262730;'>📋 DETAILED EVALUATION REPORT</h2>
+        <p style='margin: 5px 0 0 0; color: #666; font-size: 14px;'>
+            Comprehensive Loan Application Analysis & Decision Summary
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
     # ========== DECISION SUMMARY SECTION ==========
-    st.markdown("### 🎯 DECISION SUMMARY")
+    st.markdown("### 🎯 EXECUTIVE DECISION SUMMARY")
     st.markdown("---")
 
     explanation = result.get("explanation", "No explanation available")
     classification = result["classification"]
+    risk_score = result.get('risk_score', 0)
 
     if classification == "Rejected":
         st.markdown(f"""
-        <div style='background-color: #ffebee; padding: 15px; border-left: 4px solid #f44336; border-radius: 5px; margin-bottom: 20px;'>
+        <div style='background-color: #ffebee; padding: 20px; border-left: 4px solid #f44336; border-radius: 5px; margin-bottom: 20px;'>
             <h4 style='color: #c62828; margin-top: 0;'>❌ APPLICATION REJECTED</h4>
-            <p style='color: #333; font-size: 16px; line-height: 1.6;'>{explanation}</p>
+            <p style='color: #333; font-size: 15px; line-height: 1.8;'>{explanation}</p>
+            <p style='color: #666; font-size: 14px; font-style: italic; margin: 10px 0 0 0;'>
+                This application does not meet our lending criteria at this time. We recommend addressing the identified concerns and reapplying in the future.
+            </p>
         </div>
         """, unsafe_allow_html=True)
     elif classification == "Approved":
         st.markdown(f"""
-        <div style='background-color: #e8f5e9; padding: 15px; border-left: 4px solid #4caf50; border-radius: 5px; margin-bottom: 20px;'>
+        <div style='background-color: #e8f5e9; padding: 20px; border-left: 4px solid #4caf50; border-radius: 5px; margin-bottom: 20px;'>
             <h4 style='color: #2e7d32; margin-top: 0;'>✅ APPLICATION APPROVED</h4>
-            <p style='color: #333; font-size: 16px; line-height: 1.6;'>{explanation}</p>
+            <p style='color: #333; font-size: 15px; line-height: 1.8;'>{explanation}</p>
+            <p style='color: #666; font-size: 14px; font-style: italic; margin: 10px 0 0 0;'>
+                Your application has been approved based on strong financial metrics and creditworthiness indicators.
+            </p>
         </div>
         """, unsafe_allow_html=True)
     else:
         st.markdown(f"""
-        <div style='background-color: #fff3e0; padding: 15px; border-left: 4px solid #ff9800; border-radius: 5px; margin-bottom: 20px;'>
+        <div style='background-color: #fff3e0; padding: 20px; border-left: 4px solid #ff9800; border-radius: 5px; margin-bottom: 20px;'>
             <h4 style='color: #e65100; margin-top: 0;'>⏳ UNDER REVIEW</h4>
-            <p style='color: #333; font-size: 16px; line-height: 1.6;'>{explanation}</p>
+            <p style='color: #333; font-size: 15px; line-height: 1.8;'>{explanation}</p>
+            <p style='color: #666; font-size: 14px; font-style: italic; margin: 10px 0 0 0;'>
+                This application requires additional consideration and may be reviewed by our lending specialists.
+            </p>
         </div>
         """, unsafe_allow_html=True)
 
+    # ========== DETAILED ANALYSIS SECTION ==========
+    st.markdown("### 📊 COMPREHENSIVE FINANCIAL ANALYSIS")
+    st.markdown("---")
+
     st.markdown("")  # Spacing
 
+    # Generate detailed analytical paragraphs
+    st.markdown("""
+    Our comprehensive evaluation analyzed multiple key financial indicators to assess your creditworthiness and ability to repay the requested loan. The following sections detail each aspect of the analysis:
+    """)
+
+    st.markdown("""
+    **Risk Assessment Overview:**
+    Our decision is based on a sophisticated evaluation algorithm that considers 8 major financial parameters:
+    credit score, debt-to-income ratio, employment duration, loan-to-income ratio, annual income level,
+    applicant age, requested loan amount, and proposed loan tenure. Each factor is weighted according to
+    industry standards and lending best practices to calculate an overall risk score.
+    """)
+
+    st.markdown("---")
+
     # ========== RISK METRICS SECTION ==========
-    st.markdown("### 📊 RISK METRICS")
+    st.markdown("### 📊 RISK METRICS & SCORING DETAILS")
     st.markdown("---")
 
     risk_score = result.get('risk_score', 0)
@@ -163,15 +195,19 @@ def _display_detailed_evaluation(result: dict) -> None:
     if risk_score < 25:
         risk_level = "🟢 Very Low Risk"
         risk_color = "#4caf50"
+        risk_interpretation = "Excellent creditworthiness with minimal lending risk."
     elif risk_score < 50:
         risk_level = "🟡 Low-Moderate Risk"
         risk_color = "#8bc34a"
+        risk_interpretation = "Good creditworthiness with manageable lending risk."
     elif risk_score < 75:
         risk_level = "🟠 Moderate-High Risk"
         risk_color = "#ff9800"
+        risk_interpretation = "Fair creditworthiness with elevated lending risk factors."
     else:
         risk_level = "🔴 High Risk"
         risk_color = "#f44336"
+        risk_interpretation = "Poor creditworthiness with significant lending risk."
 
     # Display metrics in a nice format
     col1, col2, col3 = st.columns(3)
@@ -205,44 +241,109 @@ def _display_detailed_evaluation(result: dict) -> None:
 
     st.markdown("")  # Spacing
 
+    # Add detailed interpretation
+    st.markdown(f"""
+    **Risk Profile Interpretation:**
+
+    Your risk score of **{risk_score:.1f}/100** indicates a **{risk_level}** profile. {risk_interpretation}
+    The confidence level of **{confidence:.0%}** reflects our certainty in this assessment based on the analyzed data.
+    """)
+
+    st.markdown("---")
+
     # ========== KEY FACTORS SECTION ==========
     if result.get("key_decision_factors"):
-        st.markdown("### ✓ KEY DECISION FACTORS")
+        st.markdown("### ✓ DETAILED ANALYSIS OF KEY DECISION FACTORS")
         st.markdown("---")
+
+        st.markdown("""
+        The following factors were evaluated in detail during our analysis. Each factor plays a crucial role
+        in determining your overall creditworthiness and ability to successfully manage and repay the requested loan.
+        """)
 
         factors = result.get("key_decision_factors", [])
         for i, factor in enumerate(factors, 1):
             st.markdown(f"""
-            <div style='background-color: #f5f5f5; padding: 12px; margin-bottom: 10px; border-radius: 5px; border-left: 3px solid #2196f3;'>
-                <p style='margin: 0; color: #333;'><strong>{i}.</strong> {factor}</p>
+            <div style='background-color: #f5f5f5; padding: 15px; margin-bottom: 12px; border-radius: 5px; border-left: 3px solid #2196f3;'>
+                <p style='margin: 0; color: #1976d2; font-weight: bold;'>Factor {i}: {factor}</p>
+                <p style='margin: 8px 0 0 0; color: #666; font-size: 14px;'>
+                    This metric assesses your financial profile and lending risk based on industry standards.
+                </p>
             </div>
             """, unsafe_allow_html=True)
 
-        st.markdown("")  # Spacing
+        st.markdown("""
+        **Explanation of Key Factors:**
+        - **Profile Stability:** Measures the stability of your employment and income based on tenure and history
+        - **Financial Health:** Assesses your overall financial situation considering income vs. debt levels
+        - **Compliance Status:** Ensures all regulatory and compliance requirements are met
+        - **Credit Evaluation:** Reviews your credit history, payment patterns, and credit utilization
+        - **Income Analysis:** Evaluates annual income level against industry benchmarks
+        - **Employment Risk:** Assesses the stability and duration of your current employment
+        - **Risk Profile:** Overall assessment of your financial health across all evaluated parameters
+        """)
+
+        st.markdown("---")
 
     # ========== CONDITIONS SECTION ==========
     if result.get("conditions"):
-        st.markdown("### 📋 APPROVAL CONDITIONS")
+        st.markdown("### 📋 SPECIAL APPROVAL CONDITIONS & REQUIREMENTS")
         st.markdown("---")
+
+        st.markdown("""
+        Your approval is subject to the following conditions that must be met:
+        """)
 
         conditions = result.get("conditions", [])
         for condition in conditions:
             st.markdown(f"""
-            <div style='background-color: #e3f2fd; padding: 12px; margin-bottom: 10px; border-radius: 5px; border-left: 3px solid #1976d2;'>
+            <div style='background-color: #e3f2fd; padding: 15px; margin-bottom: 10px; border-radius: 5px; border-left: 3px solid #1976d2;'>
                 <p style='margin: 0; color: #333;'>🔹 {condition}</p>
             </div>
             """, unsafe_allow_html=True)
 
         st.markdown("")  # Spacing
 
+    # ========== RECOMMENDATIONS SECTION ==========
+    st.markdown("### 💡 RECOMMENDATIONS & NEXT STEPS")
+    st.markdown("---")
+
+    if classification == "Approved":
+        st.markdown(f"""
+        **Congratulations!** Your application has been approved. Here are your next steps:
+
+        1. **Loan Documentation**: Review and sign the loan agreement and promissory note
+        2. **Verification**: Provide final verification of employment and income
+        3. **Funding Timeline**: Funds will be disbursed within 3-5 business days
+        4. **Loan Management**: Set up automatic payments to ensure timely repayment
+        5. **Account Access**: Access your loan account through our online portal
+
+        Your approved loan amount is **${result.get('approved_loan_amount', 'TBD'):,.2f}** with a risk score of **{risk_score:.1f}/100**.
+        """)
+    else:
+        st.markdown("""
+        **Application Status**: Your application was not approved at this time.
+
+        **How to Improve Your Application:**
+        1. **Improve Credit Score**: Reduce outstanding debts and pay all bills on time
+        2. **Increase Income**: Provide additional income sources or documentation
+        3. **Reduce Liabilities**: Pay down existing debts to improve debt-to-income ratio
+        4. **Employment Stability**: Maintain current employment for at least 6 months
+        5. **Reapply Later**: Once conditions improve, feel free to reapply
+
+        We encourage you to address these concerns and reapply in 6-12 months.
+        """)
+
+    st.markdown("---")
+
     # ========== ESCALATION REASON SECTION ==========
     if result.get("escalation_reason"):
-        st.markdown("### ⚠️ ESCALATION REASON")
+        st.markdown("### ⚠️ IMPORTANT NOTICE")
         st.markdown("---")
 
         st.markdown(f"""
         <div style='background-color: #fff3e0; padding: 15px; border-radius: 5px; border-left: 4px solid #ff9800;'>
-            <p style='margin: 0; color: #e65100; font-size: 14px;'>{result.get("escalation_reason")}</p>
+            <p style='margin: 0; color: #e65100; font-size: 15px;'><strong>Note:</strong> {result.get("escalation_reason")}</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -250,10 +351,14 @@ def _display_detailed_evaluation(result: dict) -> None:
 
     # ========== FOOTER ==========
     st.markdown("""
-    <div style='background-color: #f0f2f6; padding: 15px; border-radius: 10px; margin-top: 30px; text-align: center;'>
-        <p style='margin: 0; color: #666; font-size: 12px;'>
-            This decision was generated by Claude AI Loan Processing System
-            <br>Decision ID: <strong>AUTOMATED</strong> | Status: <strong>FINAL</strong>
+    <div style='background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-top: 30px;'>
+        <p style='margin: 0; color: #666; font-size: 13px; line-height: 1.6;'>
+            <strong>Report Summary:</strong><br>
+            This comprehensive evaluation was generated by our Claude AI Loan Processing System, which analyzes
+            multiple financial indicators to provide an accurate and fair assessment of your creditworthiness.
+            The decision is final and based on our lending criteria and industry standards.
+            <br><br>
+            <strong>Decision ID:</strong> AUTOMATED | <strong>Status:</strong> FINAL | <strong>Confidence:</strong> {result.get('confidence_level', 0):.0%}
         </p>
     </div>
     """, unsafe_allow_html=True)
