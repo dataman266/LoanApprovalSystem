@@ -73,6 +73,60 @@ def startup():
         logger.error(f"DB init error: {e}")
 
 
+def insert_applicant_data(applicant_data: dict) -> str:
+    """Insert applicant data into database"""
+    session = Session()
+    try:
+        applicant_id = applicant_data.get('applicant_id', '')
+
+        applicant = session.query(Applicant).filter(Applicant.applicant_id == applicant_id).first()
+        if not applicant:
+            applicant = Applicant(
+                applicant_id=applicant_id,
+                age=applicant_data.get('age'),
+                employment_type=applicant_data.get('employment_type', 'employed'),
+                current_annual_income=applicant_data.get('annual_income', 0),
+                existing_monthly_liabilities=applicant_data.get('existing_liabilities', 0)
+            )
+            session.add(applicant)
+
+        emp = session.query(EmploymentHistory).filter(EmploymentHistory.applicant_id == applicant_id).first()
+        if not emp:
+            emp = EmploymentHistory(
+                employment_id=f"EMP-{applicant_id}",
+                applicant_id=applicant_id,
+                total_employment_months=applicant_data.get('employment_duration_months', 0),
+                number_of_jobs=1,
+                current_employment_stability='stable',
+                history_data=json.dumps([{'months': applicant_data.get('employment_duration_months', 0)}])
+            )
+            session.add(emp)
+
+        credit = session.query(CreditHistory).filter(CreditHistory.applicant_id == applicant_id).first()
+        if not credit:
+            credit = CreditHistory(
+                credit_id=f"CRD-{applicant_id}",
+                applicant_id=applicant_id,
+                credit_score=applicant_data.get('credit_score', 600),
+                late_payments_count=0,
+                delinquencies=0,
+                accounts_opened=3,
+                years_credit_history=5,
+                credit_utilization_ratio=0.3
+            )
+            session.add(credit)
+
+        session.flush()
+        session.commit()
+        return applicant_id
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Error inserting applicant data: {e}")
+        raise
+    finally:
+        session.close()
+
+
 class ToolRequest(BaseModel):
     params: dict = {}
 

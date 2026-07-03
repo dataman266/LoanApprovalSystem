@@ -229,6 +229,15 @@ def profile_analysis_node(state: LoanApplicationState) -> LoanApplicationState:
 
     try:
         input_dict = state["input_data"].model_dump()
+
+        # Insert applicant data into MCP database
+        try:
+            from src.mcp.services.applicant_db import insert_applicant_data
+            insert_applicant_data(input_dict)
+            logger.info("Applicant data inserted", application_id=state["application_id"])
+        except Exception as e:
+            logger.warning(f"Failed to insert applicant data: {e}")
+
         profile_result = applicant_profile_agent(input_dict, MCP_APPLICANT_DB_TOOLS)
         state["applicant_profile"] = profile_result
         _add_execution_trace(state, "profile_analysis")

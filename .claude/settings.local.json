@@ -38,7 +38,8 @@
       "Bash(sqlite3 *)",
       "Bash(python3 *)",
       "Bash(pip install *)",
-      "Bash(mysql *)"
+      "Bash(mysql *)",
+      "Bash(git push *)"
     ]
   }
 }
