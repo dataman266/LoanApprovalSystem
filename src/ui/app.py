@@ -259,11 +259,28 @@ def _display_detailed_evaluation(result: dict) -> None:
     """, unsafe_allow_html=True)
 
 
+def _display_application_summary(application_data: dict) -> None:
+    """Display application summary info"""
+    if application_data and application_data.get("created_at"):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.text(f"📅 Submitted: {application_data['created_at'][:10]}")
+        with col2:
+            status_text = "✅ Completed" if application_data.get("completed_at") else "⏳ Processing"
+            st.text(f"{status_text}")
+        with col3:
+            st.text(f"🔔 Status: {application_data['status'].upper()}")
+
+
 def display_decision(application_data: dict) -> None:
     """Display decision and detailed reasoning"""
     if not application_data or not application_data.get("result"):
         st.warning("⏳ Decision not yet available. Please check back in a moment...")
         return
+
+    # Show application summary first
+    _display_application_summary(application_data)
+    st.markdown("---")
 
     result = application_data["result"]
     _display_decision_status(result)
