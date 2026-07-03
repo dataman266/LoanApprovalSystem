@@ -113,62 +113,150 @@ def _display_decision_status(result: dict) -> None:
 
 
 def _display_detailed_evaluation(result: dict) -> None:
-    """Display detailed evaluation report with reasoning"""
-    st.subheader("📋 Detailed Evaluation Report")
+    """Display detailed evaluation report with professional formatting"""
 
-    # Decision Summary
-    st.write("---")
-    st.markdown("### Decision Summary")
+    # Main Header
+    st.markdown("""
+    <div style='background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-bottom: 20px;'>
+        <h2 style='margin: 0; color: #262730;'>📋 DETAILED EVALUATION REPORT</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ========== DECISION SUMMARY SECTION ==========
+    st.markdown("### 🎯 DECISION SUMMARY")
+    st.markdown("---")
+
     explanation = result.get("explanation", "No explanation available")
+    classification = result["classification"]
 
-    if result["classification"] == "Rejected":
-        st.error(f"**Reason for Rejection:** {explanation}")
-    elif result["classification"] == "Approved":
-        st.success(f"**Approval Reason:** {explanation}")
+    if classification == "Rejected":
+        st.markdown(f"""
+        <div style='background-color: #ffebee; padding: 15px; border-left: 4px solid #f44336; border-radius: 5px; margin-bottom: 20px;'>
+            <h4 style='color: #c62828; margin-top: 0;'>❌ APPLICATION REJECTED</h4>
+            <p style='color: #333; font-size: 16px; line-height: 1.6;'>{explanation}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    elif classification == "Approved":
+        st.markdown(f"""
+        <div style='background-color: #e8f5e9; padding: 15px; border-left: 4px solid #4caf50; border-radius: 5px; margin-bottom: 20px;'>
+            <h4 style='color: #2e7d32; margin-top: 0;'>✅ APPLICATION APPROVED</h4>
+            <p style='color: #333; font-size: 16px; line-height: 1.6;'>{explanation}</p>
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        st.warning(f"**Review Reason:** {explanation}")
+        st.markdown(f"""
+        <div style='background-color: #fff3e0; padding: 15px; border-left: 4px solid #ff9800; border-radius: 5px; margin-bottom: 20px;'>
+            <h4 style='color: #e65100; margin-top: 0;'>⏳ UNDER REVIEW</h4>
+            <p style='color: #333; font-size: 16px; line-height: 1.6;'>{explanation}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.write("---")
+    st.markdown("")  # Spacing
 
-    # Key Decision Factors
-    if result.get("key_decision_factors"):
-        st.markdown("### ✓ Key Decision Factors")
-        for i, factor in enumerate(result["key_decision_factors"], 1):
-            st.write(f"{i}. {factor}")
+    # ========== RISK METRICS SECTION ==========
+    st.markdown("### 📊 RISK METRICS")
+    st.markdown("---")
 
-    st.write("---")
-
-    # Risk Assessment
-    st.markdown("### 📊 Risk Assessment")
     risk_score = result.get('risk_score', 0)
+    confidence = result.get('confidence_level', 0)
 
     if risk_score < 25:
         risk_level = "🟢 Very Low Risk"
+        risk_color = "#4caf50"
     elif risk_score < 50:
         risk_level = "🟡 Low-Moderate Risk"
+        risk_color = "#8bc34a"
     elif risk_score < 75:
         risk_level = "🟠 Moderate-High Risk"
+        risk_color = "#ff9800"
     else:
         risk_level = "🔴 High Risk"
+        risk_color = "#f44336"
 
-    col1, col2 = st.columns([3, 1])
+    # Display metrics in a nice format
+    col1, col2, col3 = st.columns(3)
     with col1:
-        st.write(f"**Risk Level:** {risk_level}")
+        st.markdown(f"""
+        <div style='background-color: {risk_color}20; padding: 15px; border-radius: 8px; text-align: center;'>
+            <p style='margin: 0; font-size: 12px; color: #666;'>RISK SCORE</p>
+            <h3 style='margin: 8px 0; color: {risk_color};'>{risk_score:.1f}/100</h3>
+            <p style='margin: 0; font-size: 12px; color: #666;'>{risk_level}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
     with col2:
-        st.write(f"**Score:** {risk_score:.1f}/100")
+        st.markdown(f"""
+        <div style='background-color: #2196f320; padding: 15px; border-radius: 8px; text-align: center;'>
+            <p style='margin: 0; font-size: 12px; color: #666;'>CONFIDENCE LEVEL</p>
+            <h3 style='margin: 8px 0; color: #2196f3;'>{confidence:.0%}</h3>
+            <p style='margin: 0; font-size: 12px; color: #666;'>Decision Confidence</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.write("---")
+    with col3:
+        decision_color = "#4caf50" if classification == "Approved" else "#f44336"
+        st.markdown(f"""
+        <div style='background-color: {decision_color}20; padding: 15px; border-radius: 8px; text-align: center;'>
+            <p style='margin: 0; font-size: 12px; color: #666;'>DECISION STATUS</p>
+            <h3 style='margin: 8px 0; color: {decision_color};'>{classification.upper()}</h3>
+            <p style='margin: 0; font-size: 12px; color: #666;'>Final Decision</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    # Conditions (if any)
+    st.markdown("")  # Spacing
+
+    # ========== KEY FACTORS SECTION ==========
+    if result.get("key_decision_factors"):
+        st.markdown("### ✓ KEY DECISION FACTORS")
+        st.markdown("---")
+
+        factors = result.get("key_decision_factors", [])
+        for i, factor in enumerate(factors, 1):
+            st.markdown(f"""
+            <div style='background-color: #f5f5f5; padding: 12px; margin-bottom: 10px; border-radius: 5px; border-left: 3px solid #2196f3;'>
+                <p style='margin: 0; color: #333;'><strong>{i}.</strong> {factor}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("")  # Spacing
+
+    # ========== CONDITIONS SECTION ==========
     if result.get("conditions"):
-        st.markdown("### 📋 Approval Conditions")
-        for condition in result["conditions"]:
-            st.write(f"• {condition}")
+        st.markdown("### 📋 APPROVAL CONDITIONS")
+        st.markdown("---")
 
-    # Escalation Reason (if manual review)
+        conditions = result.get("conditions", [])
+        for condition in conditions:
+            st.markdown(f"""
+            <div style='background-color: #e3f2fd; padding: 12px; margin-bottom: 10px; border-radius: 5px; border-left: 3px solid #1976d2;'>
+                <p style='margin: 0; color: #333;'>🔹 {condition}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("")  # Spacing
+
+    # ========== ESCALATION REASON SECTION ==========
     if result.get("escalation_reason"):
-        st.markdown("### ⚠️ Escalation Reason")
-        st.info(result["escalation_reason"])
+        st.markdown("### ⚠️ ESCALATION REASON")
+        st.markdown("---")
+
+        st.markdown(f"""
+        <div style='background-color: #fff3e0; padding: 15px; border-radius: 5px; border-left: 4px solid #ff9800;'>
+            <p style='margin: 0; color: #e65100; font-size: 14px;'>{result.get("escalation_reason")}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("")  # Spacing
+
+    # ========== FOOTER ==========
+    st.markdown("""
+    <div style='background-color: #f0f2f6; padding: 15px; border-radius: 10px; margin-top: 30px; text-align: center;'>
+        <p style='margin: 0; color: #666; font-size: 12px;'>
+            This decision was generated by Claude AI Loan Processing System
+            <br>Decision ID: <strong>AUTOMATED</strong> | Status: <strong>FINAL</strong>
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def display_decision(application_data: dict) -> None:
