@@ -76,6 +76,7 @@ async def submit_application(
 
     db.add(db_app)
     db.commit()
+    db.refresh(db_app)
 
     logger.info("Application record created", application_id=application_id)
 
@@ -118,16 +119,22 @@ def _process_application_background(
             request,
         )
         _update_application_results(db_app, result_state)
+        db.add(db_app)
         db.commit()
-        logger.info("Application processed", application_id=application_id, status=db_app.status)
+        db.refresh(db_app)
+        logger.info("Application processed and saved", application_id=application_id, status=db_app.status)
     except Exception as e:
-        logger.error("Background processing error", application_id=application_id, error=str(e))
-        db_app = db.query(LoanApplication).filter(LoanApplication.id == application_id).first()
-        if db_app:
-            db_app.status = "error"
-            db_app.error_log = [str(e)]
-            db_app.completed_at = datetime.utcnow()
-            db.commit()
+        logger.error("Background processing error", application_id=application_id, error=str(e), exc_info=True)
+        try:
+            db_app = db.query(LoanApplication).filter(LoanApplication.id == application_id).first()
+            if db_app:
+                db_app.status = "error"
+                db_app.error_log = [str(e)]
+                db_app.completed_at = datetime.utcnow()
+                db.add(db_app)
+                db.commit()
+        except Exception as inner_e:
+            logger.error("Error saving error state", application_id=application_id, error=str(inner_e))
     finally:
         db.close()
 
