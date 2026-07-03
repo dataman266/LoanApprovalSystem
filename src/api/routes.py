@@ -75,6 +75,7 @@ async def submit_application(
     )
 
     db.add(db_app)
+    db.flush()
     db.commit()
     db.refresh(db_app)
 
@@ -119,7 +120,7 @@ def _process_application_background(
             request,
         )
         _update_application_results(db_app, result_state)
-        db.add(db_app)
+        db.flush()
         db.commit()
         db.refresh(db_app)
         logger.info("Application processed and saved", application_id=application_id, status=db_app.status)
@@ -131,7 +132,7 @@ def _process_application_background(
                 db_app.status = "error"
                 db_app.error_log = [str(e)]
                 db_app.completed_at = datetime.utcnow()
-                db.add(db_app)
+                db.flush()
                 db.commit()
         except Exception as inner_e:
             logger.error("Error saving error state", application_id=application_id, error=str(inner_e))
