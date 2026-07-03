@@ -7,10 +7,15 @@ logger = get_logger(__name__)
 settings = get_settings()
 
 # Create engine
+connect_args = {}
+if "sqlite" in settings.database_url:
+    connect_args = {"check_same_thread": False}
+
 engine = create_engine(
     settings.database_url,
     echo=settings.database_echo,
-    connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {}
+    connect_args=connect_args,
+    pool_pre_ping=True if "mysql" in settings.database_url else False
 )
 
 # Create session factory
