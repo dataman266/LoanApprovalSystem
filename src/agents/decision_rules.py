@@ -244,36 +244,40 @@ class DecisionRulesEngine:
 
         # Hard rejection criteria - automatic rejection
         if hard_rejection_factors:
-            reasons = ", ".join(hard_rejection_factors)
-            return "Rejected", f"Hard rejection rule triggered: {reasons}"
+            reasons = "\n• ".join(hard_rejection_factors)
+            return "Rejected", f"Application rejected due to the following critical factors:\n• {reasons}"
 
         if risk_score >= 85:
-            return "Rejected", "Risk score critically high (≥85) - application rejected"
+            return "Rejected", f"Application rejected: Risk score is critically high at {risk_score}/100, exceeding maximum acceptable threshold of 85."
 
         if risk_score >= 75:
-            return "Rejected", "Risk score high (≥75) - application rejected"
+            return "Rejected", f"Application rejected: Risk score of {risk_score}/100 is too high for approval. The applicant profile indicates significant financial or credit risk."
 
-        # Poor/very poor credit: Rejected (let LLM handle, not manual review)
-        if evaluations and evaluations.get("credit_score", ("unknown", 0))[0] in ["very_poor"]:
-            return "Rejected", f"Very poor credit score ({evaluations['credit_score'][2]}) - application rejected"
+        # Poor/very poor credit: Rejected
+        if evaluations:
+            credit_eval = evaluations.get("credit_score", ("unknown", 0))
+            if credit_eval[0] in ["very_poor"]:
+                credit_score_val = credit_eval[2] if len(credit_eval) > 2 else "below 600"
+                return "Rejected", f"Application rejected: {credit_score_val}. A credit score below 620 does not meet minimum lending standards. Applicants should work on improving credit history before reapplying."
 
-        if evaluations and evaluations.get("credit_score", ("unknown", 0))[0] == "poor":
-            return "Rejected", f"Poor credit score ({evaluations['credit_score'][2]}) - application rejected"
+            if credit_eval[0] == "poor":
+                credit_score_val = credit_eval[2] if len(credit_eval) > 2 else "620-639"
+                return "Rejected", f"Application rejected: {credit_score_val}. The credit score is in the poor range (620-639), indicating payment history or high credit utilization concerns. Please improve your credit profile and reapply."
 
         # Low risk: approve
         if risk_score < 25:
-            return "Approved", f"Low risk score ({risk_score}/100) - application approved"
+            return "Approved", f"✓ Application approved! Your risk score of {risk_score}/100 is very low, indicating strong financial stability and creditworthiness. Congratulations!"
 
         # Moderate risk: approve if confidence is adequate
         if risk_score < 50 and confidence >= 0.65:
-            return "Approved", f"Moderate risk score ({risk_score}/100) approved with sufficient confidence ({confidence:.0%})"
+            return "Approved", f"✓ Application approved! Despite moderate risk factors ({risk_score}/100), your profile demonstrates sufficient financial strength and stability for loan approval."
 
         # Higher risk: still approve if LLM confidence is high
         if risk_score < 70 and confidence >= 0.75:
-            return "Approved", f"Higher risk score ({risk_score}/100) approved with high confidence ({confidence:.0%})"
+            return "Approved", f"✓ Application approved! Although your risk profile shows elevated factors ({risk_score}/100), the overall assessment with high confidence ({confidence:.0%}) supports approval."
 
         # Default: reject if risk is too high
-        return "Rejected", f"Risk score {risk_score}/100 exceeds approval threshold"
+        return "Rejected", f"Application rejected: Risk score of {risk_score}/100 exceeds the approval threshold. Multiple risk factors in your profile (credit, income, debt levels, or employment) require improvement before reapplication."
 
 
 def generate_decision_factors(evaluations: Dict, risk_score: int) -> List[str]:
