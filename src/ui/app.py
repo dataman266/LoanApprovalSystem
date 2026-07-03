@@ -5,6 +5,12 @@ import requests
 import json
 from datetime import datetime
 import uuid
+from pathlib import Path
+import sys
+
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils.report_generator import EnhancedReportGenerator
 
 st.set_page_config(
     page_title="Loan Approval System",
@@ -110,6 +116,59 @@ def _display_decision_status(result: dict) -> None:
             st.metric("Risk Score", f"{result['risk_score']:.1f}/100")
         with col2:
             st.metric("Confidence Level", f"{result['confidence_level']:.0%}")
+
+
+def _display_enhanced_report_tabs(result: dict, applicant_data: dict = None) -> None:
+    """Display enhanced report with tabs for different sections"""
+
+    # Create tabs for different report sections
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "📋 Summary",
+        "📊 Analysis",
+        "💡 Improvements",
+        "🔄 Process",
+        "❓ FAQ",
+        "📚 Glossary"
+    ])
+
+    with tab1:
+        st.markdown(EnhancedReportGenerator.generate_executive_summary(result, applicant_data))
+        st.divider()
+        st.markdown(EnhancedReportGenerator.generate_simple_explanation(result))
+
+    with tab2:
+        st.markdown(EnhancedReportGenerator.generate_detailed_factors_analysis(result))
+
+    with tab3:
+        st.markdown(EnhancedReportGenerator.generate_improvement_recommendations(result))
+
+    with tab4:
+        st.markdown(EnhancedReportGenerator.generate_process_explanation())
+
+    with tab5:
+        st.markdown(EnhancedReportGenerator.generate_faq_section())
+
+    with tab6:
+        st.markdown(EnhancedReportGenerator.generate_glossary_section())
+
+    # Add download options
+    st.divider()
+    st.markdown("### 📥 Download Full Report")
+
+    full_report = EnhancedReportGenerator.generate_complete_enhanced_report(result, applicant_data)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button(
+            label="📄 Download as Markdown",
+            data=full_report,
+            file_name=f"loan_evaluation_{applicant_data.get('applicant_id', 'report') if applicant_data else 'report'}.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
+
+    with col2:
+        st.info("💡 Tip: Save this report for your records and share with others if needed.")
 
 
 def _display_detailed_evaluation(result: dict) -> None:
@@ -377,7 +436,7 @@ def _display_application_summary(application_data: dict) -> None:
             st.text(f"🔔 Status: {application_data['status'].upper()}")
 
 
-def display_decision(application_data: dict) -> None:
+def display_decision(application_data: dict, use_enhanced_report: bool = True) -> None:
     """Display decision and detailed reasoning"""
     if not application_data or not application_data.get("result"):
         st.warning("⏳ Decision not yet available. Please check back in a moment...")
@@ -390,7 +449,12 @@ def display_decision(application_data: dict) -> None:
     result = application_data["result"]
     _display_decision_status(result)
     st.divider()
-    _display_detailed_evaluation(result)
+
+    # Use enhanced report if requested, otherwise use original
+    if use_enhanced_report:
+        _display_enhanced_report_tabs(result, application_data)
+    else:
+        _display_detailed_evaluation(result)
 
 
 def _create_application_form() -> dict:
@@ -465,12 +529,22 @@ def _display_application_history_item(app_id: str) -> None:
         st.write(f"**Risk Score:** {app_data['result']['risk_score']:.1f}/100")
 
 
-# Sidebar for navigation
+# Sidebar for navigation and settings
 page = st.sidebar.radio(
     "Navigation",
     ["📝 Submit Application", "📊 Check Status", "📋 History"],
     index=0,
 )
+
+# Settings
+with st.sidebar.expander("⚙️ Settings"):
+    report_style = st.radio(
+        "Report Display Style",
+        ["📚 Enhanced (Plain Language)", "📊 Original (Technical)"],
+        help="Choose how you want the report to be displayed",
+    )
+    use_enhanced = report_style == "📚 Enhanced (Plain Language)"
+    st.session_state.use_enhanced_report = use_enhanced
 
 
 if page == "📝 Submit Application":
@@ -508,7 +582,8 @@ elif page == "📊 Check Status":
                     st.metric("Created", app_data["created_at"])
 
                 st.divider()
-                display_decision(app_data)
+                use_enhanced = st.session_state.get("use_enhanced_report", True)
+                display_decision(app_data, use_enhanced_report=use_enhanced)
 
                 if app_data.get("error"):
                     st.error(f"**Error:** {app_data['error']}")
