@@ -12,8 +12,17 @@ logger = get_logger(__name__)
 settings = get_settings()
 
 Base = declarative_base()
-db_url = settings.database_url if "mysql" not in settings.database_url or "localhost:3306" not in settings.database_url else "sqlite:///data/loan_system.db"
-engine = create_engine(db_url, pool_recycle=3600, echo=False)
+connect_args = {}
+if "sqlite" in settings.database_url:
+    connect_args = {"check_same_thread": False}
+
+engine = create_engine(
+    settings.database_url,
+    pool_pre_ping=True if "mysql" in settings.database_url else False,
+    pool_recycle=3600,
+    echo=False,
+    connect_args=connect_args
+)
 Session = sessionmaker(bind=engine)
 
 
